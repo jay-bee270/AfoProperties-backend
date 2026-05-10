@@ -18,9 +18,14 @@ router.post('/signup', async (req, res) => {
     if (existingUsername) return res.status(400).json({ error: 'Username already taken' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await User.create({ username, email, password: hashedPassword });
+    await User.create({ username, email, password: hashedPassword });
     res.status(201).json({ message: 'Account created successfully!' });
   } catch (error) {
+    // Handle MongoDB duplicate key error
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      return res.status(400).json({ error: `${field} already in use` });
+    }
     res.status(400).json({ error: error.message });
   }
 });
@@ -40,7 +45,15 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
-    res.json({ token, user: { id: user._id, username: user.username, email: user.email, role: user.role } });
+    res.json({ 
+      token, 
+      user: { 
+        id: user._id, 
+        username: user.username, 
+        email: user.email, 
+        role: user.role 
+      } 
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
