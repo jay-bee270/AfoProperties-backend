@@ -9,11 +9,9 @@ router.post('/signup', async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    // Check if email already exists
     const existingEmail = await User.findOne({ email });
     if (existingEmail) return res.status(400).json({ error: 'Email already in use' });
 
-    // Check if username already exists
     const existingUsername = await User.findOne({ username });
     if (existingUsername) return res.status(400).json({ error: 'Username already taken' });
 
@@ -21,7 +19,6 @@ router.post('/signup', async (req, res) => {
     await User.create({ username, email, password: hashedPassword });
     res.status(201).json({ message: 'Account created successfully!' });
   } catch (error) {
-    // Handle MongoDB duplicate key error
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern)[0];
       return res.status(400).json({ error: `${field} already in use` });
@@ -45,14 +42,14 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
-    res.json({ 
-      token, 
-      user: { 
-        id: user._id, 
-        username: user.username, 
-        email: user.email, 
-        role: user.role 
-      } 
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      }
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
