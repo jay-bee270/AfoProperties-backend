@@ -8,6 +8,15 @@ const User = require('../models/User');
 router.post('/signup', async (req, res) => {
   try {
     const { username, email, password } = req.body;
+
+    // Check if email already exists
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) return res.status(400).json({ error: 'Email already in use' });
+
+    // Check if username already exists
+    const existingUsername = await User.findOne({ username });
+    if (existingUsername) return res.status(400).json({ error: 'Username already taken' });
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await User.create({ username, email, password: hashedPassword });
     res.status(201).json({ message: 'Account created successfully!' });
