@@ -4,7 +4,31 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-// SIGNUP
+/**
+ * @swagger
+ * /api/auth/signup:
+ *   post:
+ *     summary: Create a new account
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Account created successfully
+ *       400:
+ *         description: Email or username already in use
+ */
 router.post('/signup', async (req, res) => {
   try {
     const { username, email, password } = req.body;
@@ -27,7 +51,31 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-// LOGIN
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Login to your account
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful, returns token
+ *       404:
+ *         description: User not found
+ *       401:
+ *         description: Wrong password
+ */
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
