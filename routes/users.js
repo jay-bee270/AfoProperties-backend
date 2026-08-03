@@ -5,7 +5,18 @@ const protect = require('../middleware/auth');
 const adminOnly = require('../middleware/admin');
 const bcrypt = require('bcrypt');
 
-// GET my profile
+/**
+ * @swagger
+ * /api/users/me:
+ *   get:
+ *     summary: Get my profile
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current user's profile
+ */
 router.get('/me', protect, async (req, res) => {
   try {
     const user = await User.findById(req.userId).select('-password');
@@ -15,7 +26,29 @@ router.get('/me', protect, async (req, res) => {
   }
 });
 
-// UPDATE my profile (username, email)
+/**
+ * @swagger
+ * /api/users/me:
+ *   put:
+ *     summary: Update my profile (username, email)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Profile updated
+ */
 router.put('/me', protect, async (req, res) => {
   try {
     const { username, email } = req.body;
@@ -30,7 +63,31 @@ router.put('/me', protect, async (req, res) => {
   }
 });
 
-// CHANGE my password
+/**
+ * @swagger
+ * /api/users/me/password:
+ *   put:
+ *     summary: Change my password
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *       401:
+ *         description: Current password is wrong
+ */
 router.put('/me/password', protect, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -47,7 +104,18 @@ router.put('/me/password', protect, async (req, res) => {
   }
 });
 
-// DELETE my account
+/**
+ * @swagger
+ * /api/users/me:
+ *   delete:
+ *     summary: Delete my account
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Account deleted successfully
+ */
 router.delete('/me', protect, async (req, res) => {
   try {
     await User.findByIdAndDelete(req.userId);
@@ -57,7 +125,18 @@ router.delete('/me', protect, async (req, res) => {
   }
 });
 
-// GET all users (admin only)
+/**
+ * @swagger
+ * /api/users:
+ *   get:
+ *     summary: Get all users (admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of users
+ */
 router.get('/', protect, adminOnly, async (req, res) => {
   try {
     const users = await User.find().select('-password');
@@ -67,7 +146,26 @@ router.get('/', protect, adminOnly, async (req, res) => {
   }
 });
 
-// GET a single user (admin only)
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   get:
+ *     summary: Get a single user (admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User found
+ *       404:
+ *         description: User not found
+ */
 router.get('/:id', protect, adminOnly, async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select('-password');
@@ -78,7 +176,24 @@ router.get('/:id', protect, adminOnly, async (req, res) => {
   }
 });
 
-// DELETE a user (admin only)
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   delete:
+ *     summary: Delete a user (admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User deleted
+ */
 router.delete('/:id', protect, adminOnly, async (req, res) => {
   try {
     await User.findByIdAndDelete(req.params.id);

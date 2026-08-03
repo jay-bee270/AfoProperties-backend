@@ -4,7 +4,31 @@ const Inquiry = require('../models/Inquiry');
 const protect = require('../middleware/auth');
 const adminOnly = require('../middleware/admin');
 
-// POST a new inquiry (contact form)
+/**
+ * @swagger
+ * /api/inquiries:
+ *   post:
+ *     summary: Send a new inquiry (contact form)
+ *     tags: [Inquiries]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Message sent successfully
+ *       400:
+ *         description: Invalid data
+ */
 router.post('/', async (req, res) => {
   try {
     const inquiry = await Inquiry.create(req.body);
@@ -14,7 +38,18 @@ router.post('/', async (req, res) => {
   }
 });
 
-// GET all inquiries (admin only)
+/**
+ * @swagger
+ * /api/inquiries:
+ *   get:
+ *     summary: Get all inquiries (admin only)
+ *     tags: [Inquiries]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of inquiries
+ */
 router.get('/', protect, adminOnly, async (req, res) => {
   try {
     const inquiries = await Inquiry.find().sort({ createdAt: -1 });
