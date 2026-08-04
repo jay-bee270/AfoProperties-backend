@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Booking = require('../models/Booking');
+const Property = require('../models/Property');
 const protect = require('../middleware/auth');
 const adminOnly = require('../middleware/admin');
 
@@ -18,6 +19,7 @@ const adminOnly = require('../middleware/admin');
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [property, date]
  *             properties:
  *               property:
  *                 type: string
@@ -31,9 +33,14 @@ const adminOnly = require('../middleware/admin');
  *         description: Booking request sent
  *       400:
  *         description: Invalid data
+ *       404:
+ *         description: Property not found
  */
 router.post('/', protect, async (req, res) => {
   try {
+    const property = await Property.findById(req.body.property);
+    if (!property) return res.status(404).json({ error: 'Property not found' });
+
     const booking = await Booking.create({ ...req.body, user: req.userId });
     res.status(201).json({ message: 'Booking request sent!', booking });
   } catch (error) {
