@@ -16,13 +16,23 @@ const adminOnly = require('../middleware/admin');
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [name, email, subject, message]
  *             properties:
  *               name:
  *                 type: string
+ *                 example: John Doe
  *               email:
  *                 type: string
+ *                 example: john@example.com
+ *               phone:
+ *                 type: string
+ *                 example: "08012345678"
+ *               subject:
+ *                 type: string
+ *                 example: Interested in Lekki duplex
  *               message:
  *                 type: string
+ *                 example: I'd like to schedule a viewing this weekend.
  *     responses:
  *       201:
  *         description: Message sent successfully
