@@ -6,6 +6,49 @@ const adminOnly = require('../middleware/admin');
 
 /**
  * @swagger
+ * components:
+ *   schemas:
+ *     Property:
+ *       type: object
+ *       properties:
+ *         title:
+ *           type: string
+ *         location:
+ *           type: string
+ *         price:
+ *           type: number
+ *         bedrooms:
+ *           type: number
+ *         bathrooms:
+ *           type: number
+ *         size:
+ *           type: number
+ *         type:
+ *           type: string
+ *           enum: [rent, sale, mortgage]
+ *         status:
+ *           type: string
+ *           enum: [available, sold]
+ *         featured:
+ *           type: boolean
+ *         isNewListing:
+ *           type: boolean
+ *         isHotDeal:
+ *           type: boolean
+ *         images:
+ *           type: array
+ *           items:
+ *             type: string
+ *         amenities:
+ *           type: array
+ *           items:
+ *             type: string
+ *         description:
+ *           type: string
+ */
+
+/**
+ * @swagger
  * /api/properties:
  *   get:
  *     summary: Get all properties (with optional filters)
@@ -15,10 +58,12 @@ const adminOnly = require('../middleware/admin');
  *         name: type
  *         schema:
  *           type: string
+ *           enum: [rent, sale, mortgage]
  *       - in: query
  *         name: status
  *         schema:
  *           type: string
+ *           enum: [available, sold]
  *       - in: query
  *         name: location
  *         schema:
@@ -42,6 +87,12 @@ const adminOnly = require('../middleware/admin');
  *     responses:
  *       200:
  *         description: List of properties
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Property'
  */
 router.get('/', async (req, res) => {
   try {
@@ -81,6 +132,10 @@ router.get('/', async (req, res) => {
  *     responses:
  *       200:
  *         description: Property found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Property'
  *       404:
  *         description: Property not found
  */
@@ -108,26 +163,61 @@ router.get('/:id', async (req, res) => {
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [title, location, price, type]
  *             properties:
  *               title:
  *                 type: string
- *               price:
- *                 type: number
+ *                 example: 3 Bedroom Duplex
  *               location:
  *                 type: string
- *               description:
- *                 type: string
+ *                 example: Lekki, Lagos
+ *               price:
+ *                 type: number
+ *                 example: 25000000
+ *               bedrooms:
+ *                 type: number
+ *                 example: 3
+ *               bathrooms:
+ *                 type: number
+ *                 example: 2
+ *               size:
+ *                 type: number
+ *                 example: 350
  *               type:
  *                 type: string
- *               bedrooms:
- *                 type: integer
+ *                 enum: [rent, sale, mortgage]
+ *                 example: sale
  *               status:
  *                 type: string
+ *                 enum: [available, sold]
+ *                 example: available
  *               featured:
  *                 type: boolean
+ *                 example: true
+ *               isNewListing:
+ *                 type: boolean
+ *                 example: false
+ *               isHotDeal:
+ *                 type: boolean
+ *                 example: false
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               amenities:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               description:
+ *                 type: string
+ *                 example: Spacious duplex with modern finishing
  *     responses:
  *       201:
  *         description: Property created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Property'
  *       400:
  *         description: Invalid data
  */
@@ -159,10 +249,14 @@ router.post('/', protect, adminOnly, async (req, res) => {
  *       content:
  *         application/json:
  *           schema:
- *             type: object
+ *             $ref: '#/components/schemas/Property'
  *     responses:
  *       200:
  *         description: Property updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Property'
  *       400:
  *         description: Invalid data
  *       404:
