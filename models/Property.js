@@ -13,6 +13,7 @@ const propertySchema = new mongoose.Schema({
   isNewListing: { type: Boolean, default: false },
   isHotDeal: { type: Boolean, default: false },
   images: [String],
+  videos: [String],
   amenities: [String],
   description: { type: String },
 }, { timestamps: true });

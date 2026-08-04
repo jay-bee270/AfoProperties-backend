@@ -3,6 +3,7 @@ const router = express.Router();
 const Property = require('../models/Property');
 const protect = require('../middleware/auth');
 const adminOnly = require('../middleware/admin');
+const upload = require('../middleware/upload');
 
 /**
  * @swagger
@@ -36,6 +37,10 @@ const adminOnly = require('../middleware/admin');
  *         isHotDeal:
  *           type: boolean
  *         images:
+ *           type: array
+ *           items:
+ *             type: string
+ *         videos:
  *           type: array
  *           items:
  *             type: string
@@ -114,6 +119,44 @@ router.get('/', async (req, res) => {
     res.json(properties);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/properties/upload:
+ *   post:
+ *     summary: Upload images/videos for a property (admin only) — returns Cloudinary URLs
+ *     tags: [Properties]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               files:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *     responses:
+ *       200:
+ *         description: Files uploaded, returns array of URLs
+ *       400:
+ *         description: Upload failed
+ */
+    router.post('/upload', protect, adminOnly, upload.array('files', 15), async (req, res) => {  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+    // Each file processed by multer-storage-cloudinary already has its Cloudinary URL in .path
+    const urls = req.files.map((file) => file.path);
+    res.json({ urls });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 });
 
@@ -204,6 +247,12 @@ router.get('/:id', async (req, res) => {
  *                 type: array
  *                 items:
  *                   type: string
+ *                 description: URLs returned from /api/properties/upload
+ *               videos:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: URLs returned from /api/properties/upload
  *               amenities:
  *                 type: array
  *                 items:
