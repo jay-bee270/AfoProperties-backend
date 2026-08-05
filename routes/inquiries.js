@@ -3,6 +3,7 @@ const router = express.Router();
 const Inquiry = require('../models/Inquiry');
 const protect = require('../middleware/auth');
 const adminOnly = require('../middleware/admin');
+const transporter = require('../config/email');
 
 /**
  * @swagger
@@ -41,7 +42,49 @@ const adminOnly = require('../middleware/admin');
  */
 router.post('/', async (req, res) => {
   try {
-    const inquiry = await Inquiry.create(req.body);
+    const { name, email, phone, subject, message } = req.body;
+
+    // Save to database
+    const inquiry = await Inquiry.create({ name, email, phone, subject, message });
+
+    // Email to company
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: process.env.EMAIL_USER,
+      subject: `New Inquiry: ${subject}`,
+      html: `
+        <h2>New Inquiry from AfoProperties Website</h2>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Phone:</strong> ${phone || 'Not provided'}</p>
+        <p><strong>Subject:</strong> ${subject}</p>
+        <p><strong>Message:</strong></p>
+        <p>${message}</p>
+        <hr/>
+        <p>Reply directly to this email to respond to ${name}.</p>
+      `,
+      replyTo: email,
+    });
+
+    // Auto-reply to user
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: 'We received your message — AfoProperties',
+      html: `
+        <h2>Hello ${name},</h2>
+        <p>Thank you for reaching out to AfoProperties!</p>
+        <p>We have received your message and will get back to you within 24 hours.</p>
+        <br/>
+        <p><strong>Your message:</strong></p>
+        <p>${message}</p>
+        <br/>
+        <p>Best regards,</p>
+        <p><strong>AfoProperties Team</strong></p>
+        <p>Lagos, Nigeria</p>
+      `,
+    });
+
     res.status(201).json({ message: 'Message sent successfully!' });
   } catch (error) {
     res.status(400).json({ error: error.message });
