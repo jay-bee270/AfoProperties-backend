@@ -47,8 +47,8 @@ router.post('/', async (req, res) => {
     // Save to database
     const inquiry = await Inquiry.create({ name, email, phone, subject, message });
 
-    // Email to company
-    await transporter.sendMail({
+    // Send emails in background
+    transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: process.env.EMAIL_USER,
       subject: `New Inquiry: ${subject}`,
@@ -64,10 +64,9 @@ router.post('/', async (req, res) => {
         <p>Reply directly to this email to respond to ${name}.</p>
       `,
       replyTo: email,
-    });
+    }).catch(err => console.error('❌ Inquiry email failed:', err.message));
 
-    // Auto-reply to user
-    await transporter.sendMail({
+    transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
       subject: 'We received your message — AfoProperties',
@@ -83,7 +82,7 @@ router.post('/', async (req, res) => {
         <p><strong>AfoProperties Team</strong></p>
         <p>Lagos, Nigeria</p>
       `,
-    });
+    }).catch(err => console.error('❌ Auto-reply failed:', err.message));
 
     res.status(201).json({ message: 'Message sent successfully!' });
   } catch (error) {

@@ -59,8 +59,9 @@ router.post('/', protect, async (req, res) => {
     // Save to database
     const booking = await Booking.create({ property, date, message, user: req.userId });
 
+    // --- SEND EMAILS IN BACKGROUND (no await) ---
     // Email to company
-    await transporter.sendMail({
+    transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: process.env.EMAIL_USER,
       subject: `New Booking Request — ${propertyDoc.title}`,
@@ -78,10 +79,10 @@ router.post('/', protect, async (req, res) => {
         <p>Log in to the admin dashboard to confirm or cancel this booking.</p>
       `,
       replyTo: user.email,
-    });
+    }).catch(err => console.error('❌ Email to company failed:', err.message));
 
     // Auto-reply to user
-    await transporter.sendMail({
+    transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: user.email,
       subject: 'Booking Request Received — AfoProperties',
@@ -101,8 +102,9 @@ router.post('/', protect, async (req, res) => {
         <p><strong>AfoProperties Team</strong></p>
         <p>Lagos, Nigeria</p>
       `,
-    });
+    }).catch(err => console.error('❌ Email to user failed:', err.message));
 
+    // Respond immediately
     res.status(201).json({ message: 'Booking request sent!', booking });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -199,12 +201,12 @@ router.put('/:id/status', protect, adminOnly, async (req, res) => {
     booking.status = status;
     await booking.save();
 
-    // Email to user about status update
+    // Send status email in background
     const statusMessage = status === 'confirmed'
       ? `Your inspection has been <strong>confirmed</strong>! We look forward to seeing you.`
       : `Unfortunately your inspection has been <strong>cancelled</strong>. Please contact us to reschedule.`;
 
-    await transporter.sendMail({
+    transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: booking.user.email,
       subject: `Booking ${status.charAt(0).toUpperCase() + status.slice(1)} — AfoProperties`,
@@ -221,7 +223,7 @@ router.put('/:id/status', protect, adminOnly, async (req, res) => {
         <p><strong>AfoProperties Team</strong></p>
         <p>Lagos, Nigeria</p>
       `,
-    });
+    }).catch(err => console.error('❌ Status update email failed:', err.message));
 
     res.json({ message: `Booking ${status} successfully!`, booking });
   } catch (error) {
