@@ -46,17 +46,18 @@ app.get('/test-db', async (req, res) => {
   }
 });
 
-// Test Email route (temporary)
-const transporter = require('./config/email');
+// Test Email route (temporary) — now using Resend instead of Gmail SMTP
+const resend = require('./config/email');
 app.get('/test-email', async (req, res) => {
   try {
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_USER,
+    const { data, error } = await resend.emails.send({
+      from: 'AfoProperties <onboarding@resend.dev>',
+      to: process.env.COMPANY_EMAIL,
       subject: 'Test Email',
-      text: 'If you see this, Gmail is working!',
+      text: 'If you see this, Resend is working!',
     });
-    res.json({ message: '✅ Email sent successfully!' });
+    if (error) return res.status(500).json({ error });
+    res.json({ message: '✅ Email sent successfully!', data });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

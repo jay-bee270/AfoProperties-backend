@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const Booking = require('../models/Booking');
 const Property = require('../models/Property');
+const User = require('../models/User');
 const protect = require('../middleware/auth');
 const adminOnly = require('../middleware/admin');
-const transporter = require('../config/email');
+const resend = require('../config/email');
 
 /**
  * @swagger
@@ -52,18 +53,17 @@ router.post('/', protect, async (req, res) => {
       date = new Date(`${year}-${month}-${day}`);
     }
 
-    // Get user details for email
-    const User = require('../models/User');
+    // Get user details for the notification email
     const user = await User.findById(req.userId);
 
     // Save to database
     const booking = await Booking.create({ property, date, message, user: req.userId });
 
-    // --- SEND EMAILS IN BACKGROUND (no await) ---
-    // Email to company
-    transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_USER,
+    // Notify the company — reply-to is the client, so replying goes straight to them
+    resend.emails.send({
+      from: 'AfoProperties <onboarding@resend.dev>',
+      to: process.env.COMPANY_EMAIL,
+      replyTo: user.email,
       subject: `New Booking Request — ${propertyDoc.title}`,
       html: `
         <h2>New Booking Request on AfoProperties</h2>
@@ -76,35 +76,11 @@ router.post('/', protect, async (req, res) => {
         <p><strong>Inspection Date:</strong> ${new Date(date).toDateString()}</p>
         <p><strong>Message:</strong> ${message || 'No message provided'}</p>
         <hr/>
-        <p>Log in to the admin dashboard to confirm or cancel this booking.</p>
+        <p>Reply directly to this email to respond to ${user.username}.</p>
       `,
-      replyTo: user.email,
-    }).catch(err => console.error('❌ Email to company failed:', err.message));
+    }).catch(err => console.error('❌ Booking notification email failed:', err.message));
 
-    // Auto-reply to user
-    transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: user.email,
-      subject: 'Booking Request Received — AfoProperties',
-      html: `
-        <h2>Hello ${user.username},</h2>
-        <p>Your inspection booking request has been received!</p>
-        <br/>
-        <p><strong>Property:</strong> ${propertyDoc.title}</p>
-        <p><strong>Location:</strong> ${propertyDoc.location}</p>
-        <p><strong>Inspection Date:</strong> ${new Date(date).toDateString()}</p>
-        <p><strong>Status:</strong> Pending</p>
-        <br/>
-        <p>Our team will review your request and confirm or cancel it shortly.</p>
-        <p>You will receive another email once your booking status is updated.</p>
-        <br/>
-        <p>Best regards,</p>
-        <p><strong>AfoProperties Team</strong></p>
-        <p>Lagos, Nigeria</p>
-      `,
-    }).catch(err => console.error('❌ Email to user failed:', err.message));
-
-    // Respond immediately
+    // Respond immediately, don't wait on email
     res.status(201).json({ message: 'Booking request sent!', booking });
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -179,7 +155,7 @@ router.get('/', protect, adminOnly, async (req, res) => {
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [confirmed, cancelled]
+ *                 enum: [pending, confirmed, cancelled]
  *     responses:
  *       200:
  *         description: Booking status updated
@@ -191,6 +167,10 @@ router.get('/', protect, adminOnly, async (req, res) => {
 router.put('/:id/status', protect, adminOnly, async (req, res) => {
   try {
     const { status } = req.body;
+    const validStatuses = ['pending', 'confirmed', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: `Status must be one of: ${validStatuses.join(', ')}` });
+    }
 
     const booking = await Booking.findById(req.params.id)
       .populate('property')
@@ -201,31 +181,7 @@ router.put('/:id/status', protect, adminOnly, async (req, res) => {
     booking.status = status;
     await booking.save();
 
-    // Send status email in background
-    const statusMessage = status === 'confirmed'
-      ? `Your inspection has been <strong>confirmed</strong>! We look forward to seeing you.`
-      : `Unfortunately your inspection has been <strong>cancelled</strong>. Please contact us to reschedule.`;
-
-    transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: booking.user.email,
-      subject: `Booking ${status.charAt(0).toUpperCase() + status.slice(1)} — AfoProperties`,
-      html: `
-        <h2>Hello ${booking.user.username},</h2>
-        <p>${statusMessage}</p>
-        <br/>
-        <p><strong>Property:</strong> ${booking.property.title}</p>
-        <p><strong>Location:</strong> ${booking.property.location}</p>
-        <p><strong>Inspection Date:</strong> ${new Date(booking.date).toDateString()}</p>
-        <p><strong>Status:</strong> ${status.charAt(0).toUpperCase() + status.slice(1)}</p>
-        <br/>
-        <p>Best regards,</p>
-        <p><strong>AfoProperties Team</strong></p>
-        <p>Lagos, Nigeria</p>
-      `,
-    }).catch(err => console.error('❌ Status update email failed:', err.message));
-
-    res.json({ message: `Booking ${status} successfully!`, booking });
+    res.json({ message: `Booking marked as ${status}`, booking });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

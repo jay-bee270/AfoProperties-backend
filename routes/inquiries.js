@@ -3,7 +3,7 @@ const router = express.Router();
 const Inquiry = require('../models/Inquiry');
 const protect = require('../middleware/auth');
 const adminOnly = require('../middleware/admin');
-const transporter = require('../config/email');
+const resend = require('../config/email');
 
 /**
  * @swagger
@@ -47,10 +47,11 @@ router.post('/', async (req, res) => {
     // Save to database
     const inquiry = await Inquiry.create({ name, email, phone, subject, message });
 
-    // Send emails in background
-    transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_USER,
+    // Notify the company — reply-to is the client, so replying goes straight to them
+    resend.emails.send({
+      from: 'AfoProperties <onboarding@resend.dev>',
+      to: process.env.COMPANY_EMAIL,
+      replyTo: email,
       subject: `New Inquiry: ${subject}`,
       html: `
         <h2>New Inquiry from AfoProperties Website</h2>
@@ -63,26 +64,7 @@ router.post('/', async (req, res) => {
         <hr/>
         <p>Reply directly to this email to respond to ${name}.</p>
       `,
-      replyTo: email,
-    }).catch(err => console.error('❌ Inquiry email failed:', err.message));
-
-    transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'We received your message — AfoProperties',
-      html: `
-        <h2>Hello ${name},</h2>
-        <p>Thank you for reaching out to AfoProperties!</p>
-        <p>We have received your message and will get back to you within 24 hours.</p>
-        <br/>
-        <p><strong>Your message:</strong></p>
-        <p>${message}</p>
-        <br/>
-        <p>Best regards,</p>
-        <p><strong>AfoProperties Team</strong></p>
-        <p>Lagos, Nigeria</p>
-      `,
-    }).catch(err => console.error('❌ Auto-reply failed:', err.message));
+    }).catch(err => console.error('❌ Inquiry notification email failed:', err.message));
 
     res.status(201).json({ message: 'Message sent successfully!' });
   } catch (error) {
