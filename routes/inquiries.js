@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Inquiry = require('../models/Inquiry');
+const Property = require('../models/Property');
 const protect = require('../middleware/auth');
 const adminOnly = require('../middleware/admin');
 const resend = require('../config/email');
@@ -9,7 +10,7 @@ const resend = require('../config/email');
  * @swagger
  * /api/inquiries:
  *   post:
- *     summary: Send a new inquiry (contact form)
+ *     summary: Send a new inquiry (contact form, optionally linked to a property)
  *     tags: [Inquiries]
  *     requestBody:
  *       required: true
@@ -34,18 +35,30 @@ const resend = require('../config/email');
  *               message:
  *                 type: string
  *                 example: I'd like to schedule a viewing this weekend.
+ *               property:
+ *                 type: string
+ *                 description: Optional property ID, if the inquiry is about a specific listing
  *     responses:
  *       201:
  *         description: Message sent successfully
  *       400:
  *         description: Invalid data
+ *       404:
+ *         description: Property not found (if a property id was provided)
  */
 router.post('/', async (req, res) => {
   try {
-    const { name, email, phone, subject, message } = req.body;
+    const { name, email, phone, subject, message, property } = req.body;
+
+    // If a property id was provided, validate it exists
+    let propertyDoc = null;
+    if (property) {
+      propertyDoc = await Property.findById(property);
+      if (!propertyDoc) return res.status(404).json({ error: 'Property not found' });
+    }
 
     // Save to database
-    const inquiry = await Inquiry.create({ name, email, phone, subject, message });
+    const inquiry = await Inquiry.create({ name, email, phone, subject, message, property: property || undefined });
 
     // Notify the company — reply-to is the client, so replying goes straight to them
     resend.emails.send({
@@ -55,6 +68,11 @@ router.post('/', async (req, res) => {
       subject: `New Inquiry: ${subject}`,
       html: `
         <h2>New Inquiry from AfoProperties Website</h2>
+        ${propertyDoc ? `
+          <p><strong>Regarding Property:</strong> ${propertyDoc.title}</p>
+          <p><strong>Location:</strong> ${propertyDoc.location}</p>
+          <hr/>
+        ` : ''}
         <p><strong>Name:</strong> ${name}</p>
         <p><strong>Email:</strong> ${email}</p>
         <p><strong>Phone:</strong> ${phone || 'Not provided'}</p>
@@ -66,7 +84,7 @@ router.post('/', async (req, res) => {
       `,
     }).catch(err => console.error('❌ Inquiry notification email failed:', err.message));
 
-    res.status(201).json({ message: 'Message sent successfully!' });
+    res.status(201).json({ message: 'Message sent successfully!', inquiry });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -86,7 +104,7 @@ router.post('/', async (req, res) => {
  */
 router.get('/', protect, adminOnly, async (req, res) => {
   try {
-    const inquiries = await Inquiry.find().sort({ createdAt: -1 });
+    const inquiries = await Inquiry.find().populate('property').sort({ createdAt: -1 });
     res.json(inquiries);
   } catch (error) {
     res.status(500).json({ error: error.message });

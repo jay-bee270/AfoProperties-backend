@@ -178,6 +178,71 @@ router.get('/:id', protect, adminOnly, async (req, res) => {
 
 /**
  * @swagger
+ * /api/users/{id}/role:
+ *   put:
+ *     summary: Change a user's role between user and admin (admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [role]
+ *             properties:
+ *               role:
+ *                 type: string
+ *                 enum: [user, admin]
+ *                 example: admin
+ *     responses:
+ *       200:
+ *         description: Role updated
+ *       400:
+ *         description: Invalid role
+ *       403:
+ *         description: Admins only, or cannot demote yourself
+ *       404:
+ *         description: User not found
+ */
+router.put('/:id/role', protect, adminOnly, async (req, res) => {
+  try {
+    const { role } = req.body;
+    const validRoles = ['user', 'admin'];
+
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ error: `Role must be one of: ${validRoles.join(', ')}` });
+    }
+
+    // Prevent an admin from accidentally demoting themselves and losing access
+    if (req.params.id === req.userId && role !== 'admin') {
+      return res.status(403).json({ error: 'You cannot remove your own admin access' });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { role },
+      { new: true }
+    ).select('-password');
+
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    res.json({ message: `User role updated to ${role}`, user });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
+ * @swagger
  * /api/users/{id}:
  *   delete:
  *     summary: Delete a user (admin only)

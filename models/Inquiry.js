@@ -6,6 +6,7 @@ const inquirySchema = new mongoose.Schema({
   phone: { type: String },
   subject: { type: String, required: true },
   message: { type: String, required: true },
+  property: { type: mongoose.Schema.Types.ObjectId, ref: 'Property' }, // optional
   status: { type: String, enum: ['new', 'read', 'replied'], default: 'new' }
 }, { timestamps: true });
 
