@@ -45,6 +45,8 @@ router.get('/me', protect, async (req, res) => {
  *                 type: string
  *               email:
  *                 type: string
+ *               phone:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Profile updated

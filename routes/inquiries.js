@@ -26,9 +26,6 @@ const resend = require('../config/email');
  *               email:
  *                 type: string
  *                 example: john@example.com
- *               phone:
- *                 type: string
- *                 example: "08012345678"
  *               subject:
  *                 type: string
  *                 example: Interested in Lekki duplex
@@ -48,7 +45,7 @@ const resend = require('../config/email');
  */
 router.post('/', async (req, res) => {
   try {
-    const { name, email, phone, subject, message, property } = req.body;
+    const { name, email, subject, message, property } = req.body;
 
     let propertyDoc = null;
     if (property) {
@@ -57,7 +54,7 @@ router.post('/', async (req, res) => {
     }
 
     const inquiry = await Inquiry.create({
-      name, email, phone, subject, message,
+      name, email, subject, message,
       property: property || undefined
     });
 
@@ -75,7 +72,6 @@ router.post('/', async (req, res) => {
         ` : ''}
         <p><strong>Name:</strong> ${name}</p>
         <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Phone:</strong> ${phone || 'Not provided'}</p>
         <p><strong>Subject:</strong> ${subject}</p>
         <p><strong>Message:</strong></p>
         <p>${message}</p>
