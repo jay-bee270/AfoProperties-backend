@@ -22,16 +22,16 @@ const resend = require('../config/email');
  *             properties:
  *               name:
  *                 type: string
- *                 example: John Doe
+ *                 example: Jane Smith
  *               email:
  *                 type: string
- *                 example: john@example.com
+ *                 example: jane@example.com
  *               subject:
  *                 type: string
- *                 example: Interested in Lekki duplex
+ *                 example: Question about payment plans
  *               message:
  *                 type: string
- *                 example: I'd like to schedule a viewing this weekend.
+ *                 example: Do you offer installment payment options for properties listed for sale?
  *               property:
  *                 type: string
  *                 description: Optional property ID
