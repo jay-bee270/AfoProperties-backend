@@ -53,6 +53,14 @@ router.post('/', protect, async (req, res) => {
       date = new Date(`${year}-${month}-${day}`);
     }
 
+    // Reject booking dates in the past
+    const parsedDate = new Date(date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // compare by calendar day, not time of day
+    if (parsedDate < today) {
+      return res.status(400).json({ error: 'Booking date cannot be in the past' });
+    }
+
     // Get user details for the notification email
     const user = await User.findById(req.userId);
 

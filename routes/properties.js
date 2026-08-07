@@ -4,6 +4,7 @@ const Property = require('../models/Property');
 const protect = require('../middleware/auth');
 const adminOnly = require('../middleware/admin');
 const upload = require('../middleware/upload');
+const cloudinary = require('../config/cloudinary');
 
 /**
  * @swagger
@@ -51,6 +52,33 @@ const upload = require('../middleware/upload');
  *         description:
  *           type: string
  */
+
+// Helper: extract the Cloudinary public_id from a full URL so we can delete it later.
+// A Cloudinary URL looks like:
+// https://res.cloudinary.com/CLOUD_NAME/image/upload/v123456/afoproperties/abc123.jpg
+// The public_id we need for deletion is: afoproperties/abc123
+function extractPublicId(url) {
+  try {
+    const parts = url.split('/upload/')[1]; // v123456/afoproperties/abc123.jpg
+    const withoutVersion = parts.split('/').slice(1).join('/'); // afoproperties/abc123.jpg
+    return withoutVersion.substring(0, withoutVersion.lastIndexOf('.')); // afoproperties/abc123
+  } catch {
+    return null;
+  }
+}
+
+// Helper: delete a list of Cloudinary URLs (images or videos) from Cloudinary storage
+async function deleteFromCloudinary(urls = [], resourceType = 'image') {
+  for (const url of urls) {
+    const publicId = extractPublicId(url);
+    if (!publicId) continue;
+    try {
+      await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+    } catch (err) {
+      console.error(`❌ Failed to delete ${publicId} from Cloudinary:`, err.message);
+    }
+  }
+}
 
 /**
  * @swagger
@@ -148,11 +176,11 @@ router.get('/', async (req, res) => {
  *       400:
  *         description: Upload failed
  */
-    router.post('/upload', protect, adminOnly, upload.array('files', 15), async (req, res) => {  try {
+router.post('/upload', protect, adminOnly, upload.array('files', 15), async (req, res) => {
+  try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'No files uploaded' });
     }
-    // Each file processed by multer-storage-cloudinary already has its Cloudinary URL in .path
     const urls = req.files.map((file) => file.path);
     res.json({ urls });
   } catch (error) {
@@ -283,7 +311,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
  * @swagger
  * /api/properties/{id}:
  *   put:
- *     summary: Update a property (admin only)
+ *     summary: Update a property (admin only) — removes any images/videos no longer in the new list from Cloudinary
  *     tags: [Properties]
  *     security:
  *       - bearerAuth: []
@@ -313,8 +341,22 @@ router.post('/', protect, adminOnly, async (req, res) => {
  */
 router.put('/:id', protect, adminOnly, async (req, res) => {
   try {
+    const existing = await Property.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Property not found' });
+
     const property = await Property.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!property) return res.status(404).json({ error: 'Property not found' });
+
+    // If images/videos were included in the update, figure out which old ones
+    // are no longer present in the new list, and delete those from Cloudinary
+    if (req.body.images) {
+      const removedImages = existing.images.filter(img => !req.body.images.includes(img));
+      deleteFromCloudinary(removedImages, 'image');
+    }
+    if (req.body.videos) {
+      const removedVideos = existing.videos.filter(vid => !req.body.videos.includes(vid));
+      deleteFromCloudinary(removedVideos, 'video');
+    }
+
     res.json(property);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -325,7 +367,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
  * @swagger
  * /api/properties/{id}:
  *   delete:
- *     summary: Delete a property (admin only)
+ *     summary: Delete a property (admin only) — also removes its images/videos from Cloudinary
  *     tags: [Properties]
  *     security:
  *       - bearerAuth: []
@@ -341,7 +383,13 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
  */
 router.delete('/:id', protect, adminOnly, async (req, res) => {
   try {
-    await Property.findByIdAndDelete(req.params.id);
+    const property = await Property.findByIdAndDelete(req.params.id);
+    if (!property) return res.status(404).json({ error: 'Property not found' });
+
+    // Clean up Cloudinary storage in the background, don't block the response
+    deleteFromCloudinary(property.images, 'image');
+    deleteFromCloudinary(property.videos, 'video');
+
     res.json({ message: 'Property deleted' });
   } catch (error) {
     res.status(500).json({ error: error.message });

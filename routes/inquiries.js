@@ -26,9 +26,6 @@ const resend = require('../config/email');
  *               email:
  *                 type: string
  *                 example: john@example.com
- *               phone:
- *                 type: string
- *                 example: "08012345678"
  *               subject:
  *                 type: string
  *                 example: Interested in Lekki duplex
@@ -48,19 +45,16 @@ const resend = require('../config/email');
  */
 router.post('/', async (req, res) => {
   try {
-    const { name, email, phone, subject, message, property } = req.body;
+    const { name, email, subject, message, property } = req.body;
 
-    // If a property id was provided, validate it exists
     let propertyDoc = null;
     if (property) {
       propertyDoc = await Property.findById(property);
       if (!propertyDoc) return res.status(404).json({ error: 'Property not found' });
     }
 
-    // Save to database
-    const inquiry = await Inquiry.create({ name, email, phone, subject, message, property: property || undefined });
+    const inquiry = await Inquiry.create({ name, email, subject, message, property: property || undefined });
 
-    // Notify the company — reply-to is the client, so replying goes straight to them
     resend.emails.send({
       from: 'AfoProperties <onboarding@resend.dev>',
       to: process.env.COMPANY_EMAIL,
@@ -75,7 +69,6 @@ router.post('/', async (req, res) => {
         ` : ''}
         <p><strong>Name:</strong> ${name}</p>
         <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Phone:</strong> ${phone || 'Not provided'}</p>
         <p><strong>Subject:</strong> ${subject}</p>
         <p><strong>Message:</strong></p>
         <p>${message}</p>
@@ -108,6 +101,62 @@ router.get('/', protect, adminOnly, async (req, res) => {
     res.json(inquiries);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/inquiries/{id}/status:
+ *   put:
+ *     summary: Update inquiry status (admin only)
+ *     tags: [Inquiries]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [new, read, replied]
+ *     responses:
+ *       200:
+ *         description: Inquiry status updated
+ *       400:
+ *         description: Invalid status
+ *       404:
+ *         description: Inquiry not found
+ */
+router.put('/:id/status', protect, adminOnly, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const validStatuses = ['new', 'read', 'replied'];
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: `Status must be one of: ${validStatuses.join(', ')}` });
+    }
+
+    const inquiry = await Inquiry.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    ).populate('property');
+
+    if (!inquiry) return res.status(404).json({ error: 'Inquiry not found' });
+
+    res.json({ message: `Inquiry marked as ${status}`, inquiry });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 });
 
