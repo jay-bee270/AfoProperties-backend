@@ -49,12 +49,12 @@ router.get('/me', protect, async (req, res) => {
  *       200:
  *         description: Profile updated
  */
-router.put('/me', protect, async (req, res) => {
+rrouter.put('/me', protect, async (req, res) => {
   try {
-    const { username, email } = req.body;
+    const { username, email, phone } = req.body;
     const user = await User.findByIdAndUpdate(
       req.userId,
-      { username, email },
+      { username, email, phone },
       { new: true }
     ).select('-password');
     res.json({ message: 'Profile updated!', user });
@@ -62,7 +62,6 @@ router.put('/me', protect, async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
-
 /**
  * @swagger
  * /api/users/me/password:

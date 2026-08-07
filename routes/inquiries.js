@@ -26,6 +26,9 @@ const resend = require('../config/email');
  *               email:
  *                 type: string
  *                 example: john@example.com
+ *               phone:
+ *                 type: string
+ *                 example: "08012345678"
  *               subject:
  *                 type: string
  *                 example: Interested in Lekki duplex
@@ -34,18 +37,18 @@ const resend = require('../config/email');
  *                 example: I'd like to schedule a viewing this weekend.
  *               property:
  *                 type: string
- *                 description: Optional property ID, if the inquiry is about a specific listing
+ *                 description: Optional property ID
  *     responses:
  *       201:
  *         description: Message sent successfully
  *       400:
  *         description: Invalid data
  *       404:
- *         description: Property not found (if a property id was provided)
+ *         description: Property not found
  */
 router.post('/', async (req, res) => {
   try {
-    const { name, email, subject, message, property } = req.body;
+    const { name, email, phone, subject, message, property } = req.body;
 
     let propertyDoc = null;
     if (property) {
@@ -53,7 +56,10 @@ router.post('/', async (req, res) => {
       if (!propertyDoc) return res.status(404).json({ error: 'Property not found' });
     }
 
-    const inquiry = await Inquiry.create({ name, email, subject, message, property: property || undefined });
+    const inquiry = await Inquiry.create({
+      name, email, phone, subject, message,
+      property: property || undefined
+    });
 
     resend.emails.send({
       from: 'AfoProperties <onboarding@resend.dev>',
@@ -69,6 +75,7 @@ router.post('/', async (req, res) => {
         ` : ''}
         <p><strong>Name:</strong> ${name}</p>
         <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Phone:</strong> ${phone || 'Not provided'}</p>
         <p><strong>Subject:</strong> ${subject}</p>
         <p><strong>Message:</strong></p>
         <p>${message}</p>

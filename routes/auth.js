@@ -16,11 +16,15 @@ const User = require('../models/User');
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [username, email, password]
  *             properties:
  *               username:
  *                 type: string
  *               email:
  *                 type: string
+ *               phone:
+ *                 type: string
+ *                 example: "08012345678"
  *               password:
  *                 type: string
  *     responses:
@@ -31,7 +35,7 @@ const User = require('../models/User');
  */
 router.post('/signup', async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, phone, password } = req.body;
 
     const existingEmail = await User.findOne({ email });
     if (existingEmail) return res.status(400).json({ error: 'Email already in use' });
@@ -40,7 +44,7 @@ router.post('/signup', async (req, res) => {
     if (existingUsername) return res.status(400).json({ error: 'Username already taken' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    await User.create({ username, email, password: hashedPassword });
+    await User.create({ username, email, phone, password: hashedPassword });
     res.status(201).json({ message: 'Account created successfully!' });
   } catch (error) {
     if (error.code === 11000) {
@@ -96,6 +100,7 @@ router.post('/login', async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
+        phone: user.phone,
         role: user.role
       }
     });
