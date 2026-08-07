@@ -49,7 +49,7 @@ router.get('/me', protect, async (req, res) => {
  *       200:
  *         description: Profile updated
  */
-rrouter.put('/me', protect, async (req, res) => {
+ router.put('/me', protect, async (req, res) => {
   try {
     const { username, email, phone } = req.body;
     const user = await User.findByIdAndUpdate(
