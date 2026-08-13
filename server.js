@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
+
 require('dotenv').config();
 
 const app = express();
@@ -14,10 +15,16 @@ app.use(express.json());
 // Swagger Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+// Swagger JSON - contains all documented endpoints
+app.get('/api-docs.json', (req, res) => {
+  res.json(swaggerSpec);
+});
+
 // Connect to MongoDB with timeout
-mongoose.connect(process.env.MONGO_URI, {
-  serverSelectionTimeoutMS: 5000, // Fail after 5s instead of 30s
-})
+mongoose
+  .connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 5000,
+  })
   .then(() => console.log('✅ Connected to MongoDB!'))
   .catch((err) => {
     console.log('❌ MongoDB Connection Failed:', err.message);
@@ -30,24 +37,34 @@ app.use('/api/properties', require('./routes/properties'));
 app.use('/api/inquiries', require('./routes/inquiries'));
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/settings', require('./routes/settings'));
 
 // Test route
 app.get('/', (req, res) => {
-  res.json({ message: 'AfoProperties API is running!' });
+  res.json({
+    message: 'AfoProperties API is running!',
+  });
 });
 
 // Test DB route
 app.get('/test-db', async (req, res) => {
   try {
     await mongoose.connection.db.admin().ping();
-    res.json({ message: '✅ Database is alive!' });
+
+    res.json({
+      message: '✅ Database is alive!',
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      error: error.message,
+    });
   }
 });
 
-// Test Email route (temporary) — now using Resend instead of Gmail SMTP
+// Test Email route
+// Using Resend instead of Gmail SMTP
 const resend = require('./config/email');
+
 app.get('/test-email', async (req, res) => {
   try {
     const { data, error } = await resend.emails.send({
@@ -56,12 +73,27 @@ app.get('/test-email', async (req, res) => {
       subject: 'Test Email',
       text: 'If you see this, Resend is working!',
     });
-    if (error) return res.status(500).json({ error });
-    res.json({ message: '✅ Email sent successfully!', data });
+
+    if (error) {
+      return res.status(500).json({
+        error,
+      });
+    }
+
+    res.json({
+      message: '✅ Email sent successfully!',
+      data,
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      error: error.message,
+    });
   }
 });
 
+// Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
