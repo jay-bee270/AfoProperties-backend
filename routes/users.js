@@ -30,7 +30,7 @@ router.get('/me', protect, async (req, res) => {
  * @swagger
  * /api/users/me:
  *   put:
- *     summary: Update my profile (username, email)
+ *     summary: Update my profile
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -51,7 +51,7 @@ router.get('/me', protect, async (req, res) => {
  *       200:
  *         description: Profile updated
  */
- router.put('/me', protect, async (req, res) => {
+router.put('/me', protect, async (req, res) => {
   try {
     const { username, email, phone } = req.body;
     const user = await User.findByIdAndUpdate(
@@ -64,6 +64,7 @@ router.get('/me', protect, async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
+
 /**
  * @swagger
  * /api/users/me/password:
@@ -92,11 +93,9 @@ router.get('/me', protect, async (req, res) => {
 router.put('/me/password', protect, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-
     const user = await User.findById(req.userId);
     const validPassword = await bcrypt.compare(currentPassword, user.password);
     if (!validPassword) return res.status(401).json({ error: 'Current password is wrong' });
-
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await User.findByIdAndUpdate(req.userId, { password: hashedPassword });
     res.json({ message: 'Password changed successfully!' });
@@ -121,6 +120,56 @@ router.delete('/me', protect, async (req, res) => {
   try {
     await User.findByIdAndDelete(req.userId);
     res.json({ message: 'Account deleted successfully!' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/active:
+ *   get:
+ *     summary: Get active users — logged in within the last 30 days (admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of active users
+ */
+router.get('/active', protect, adminOnly, async (req, res) => {
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const users = await User.find({
+      updatedAt: { $gte: thirtyDaysAgo }
+    }).select('-password');
+    res.json({ count: users.length, users });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/users/inactive:
+ *   get:
+ *     summary: Get inactive users — no activity in over 30 days (admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of inactive users
+ */
+router.get('/inactive', protect, adminOnly, async (req, res) => {
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const users = await User.find({
+      updatedAt: { $lt: thirtyDaysAgo }
+    }).select('-password');
+    res.json({ count: users.length, users });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -181,7 +230,7 @@ router.get('/:id', protect, adminOnly, async (req, res) => {
  * @swagger
  * /api/users/{id}/role:
  *   put:
- *     summary: Change a user's role between user and admin (admin only)
+ *     summary: Change a user's role (admin only)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -191,26 +240,21 @@ router.get('/:id', protect, adminOnly, async (req, res) => {
  *         required: true
  *         schema:
  *           type: string
- *         description: User ID
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [role]
  *             properties:
  *               role:
  *                 type: string
  *                 enum: [user, admin]
- *                 example: admin
  *     responses:
  *       200:
  *         description: Role updated
- *       400:
- *         description: Invalid role
  *       403:
- *         description: Admins only, or cannot demote yourself
+ *         description: Cannot demote yourself
  *       404:
  *         description: User not found
  */
@@ -218,24 +262,18 @@ router.put('/:id/role', protect, adminOnly, async (req, res) => {
   try {
     const { role } = req.body;
     const validRoles = ['user', 'admin'];
-
     if (!validRoles.includes(role)) {
       return res.status(400).json({ error: `Role must be one of: ${validRoles.join(', ')}` });
     }
-
-    // Prevent an admin from accidentally demoting themselves and losing access
     if (req.params.id === req.userId && role !== 'admin') {
       return res.status(403).json({ error: 'You cannot remove your own admin access' });
     }
-
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { role },
       { new: true }
     ).select('-password');
-
     if (!user) return res.status(404).json({ error: 'User not found' });
-
     res.json({ message: `User role updated to ${role}`, user });
   } catch (error) {
     res.status(400).json({ error: error.message });
