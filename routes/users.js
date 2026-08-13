@@ -142,7 +142,7 @@ router.get('/active', protect, adminOnly, async (req, res) => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const users = await User.find({
-      updatedAt: { $gte: thirtyDaysAgo }
+      lastLogin: { $gte: thirtyDaysAgo }
     }).select('-password');
     res.json({ count: users.length, users });
   } catch (error) {
@@ -154,7 +154,7 @@ router.get('/active', protect, adminOnly, async (req, res) => {
  * @swagger
  * /api/users/inactive:
  *   get:
- *     summary: Get inactive users — no activity in over 30 days (admin only)
+ *     summary: Get inactive users — never logged in or no activity in 30 days (admin only)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -167,7 +167,10 @@ router.get('/inactive', protect, adminOnly, async (req, res) => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const users = await User.find({
-      updatedAt: { $lt: thirtyDaysAgo }
+      $or: [
+        { lastLogin: null },
+        { lastLogin: { $lt: thirtyDaysAgo } }
+      ]
     }).select('-password');
     res.json({ count: users.length, users });
   } catch (error) {

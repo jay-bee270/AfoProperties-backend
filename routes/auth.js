@@ -89,6 +89,9 @@ router.post('/login', async (req, res) => {
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) return res.status(401).json({ error: 'Wrong password' });
 
+    // Update last login time
+    await User.findByIdAndUpdate(user._id, { lastLogin: new Date() });
+
     const token = jwt.sign(
       { userId: user._id, role: user.role },
       process.env.JWT_SECRET,
@@ -101,7 +104,8 @@ router.post('/login', async (req, res) => {
         username: user.username,
         email: user.email,
         phone: user.phone,
-        role: user.role
+        role: user.role,
+        lastLogin: new Date(),
       }
     });
   } catch (error) {
