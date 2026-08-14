@@ -59,7 +59,7 @@ router.post('/signup', async (req, res) => {
  * @swagger
  * /api/auth/login:
  *   post:
- *     summary: Login to your account
+ *     summary: Login to your account with either email or username
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -67,14 +67,21 @@ router.post('/signup', async (req, res) => {
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [password]
  *             properties:
  *               email:
  *                 type: string
+ *                 description: Provide this OR username, not both
+ *               username:
+ *                 type: string
+ *                 description: Provide this OR email, not both
  *               password:
  *                 type: string
  *     responses:
  *       200:
  *         description: Login successful, returns token
+ *       400:
+ *         description: Neither email nor username was provided
  *       404:
  *         description: User not found
  *       401:
@@ -82,30 +89,44 @@ router.post('/signup', async (req, res) => {
  */
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    const { email, username, password } = req.body;
+
+    if (!email && !username) {
+      return res.status(400).json({ error: 'Email or username is required' });
+    }
+
+    // Look the user up by whichever identifier was actually sent. Passing
+    // an explicit key with value undefined here would make Mongo match
+    // every document, so we build the filter conditionally instead.
+    const user = await User.findOne(email ? { email } : { username });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) return res.status(401).json({ error: 'Wrong password' });
 
-    // Update last login time
-    await User.findByIdAndUpdate(user._id, { lastLogin: new Date() });
+    // Update last login time and use the returned document so the
+    // response reflects the actual saved value, not a fresh Date() that
+    // may drift from what's in the DB.
+    const updatedUser = await User.findByIdAndUpdate(
+      user._id,
+      { lastLogin: new Date() },
+      { new: true }
+    );
 
     const token = jwt.sign(
-      { userId: user._id, role: user.role },
+      { userId: updatedUser._id, role: updatedUser.role },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
     res.json({
       token,
       user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        lastLogin: new Date(),
+        id: updatedUser._id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        role: updatedUser.role,
+        lastLogin: updatedUser.lastLogin,
       }
     });
   } catch (error) {
