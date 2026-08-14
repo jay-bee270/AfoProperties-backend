@@ -19,6 +19,7 @@ const cloudinary = require('../config/cloudinary');
  *           type: string
  *         price:
  *           type: number
+ *           description: Base price (used for sale/mortgage properties)
  *         bedrooms:
  *           type: number
  *         bathrooms:
@@ -51,23 +52,33 @@ const cloudinary = require('../config/cloudinary');
  *             type: string
  *         description:
  *           type: string
+ *         rentalPeriod:
+ *           type: string
+ *           enum: [day, month, year]
+ *           description: Only for rent properties — defines the billing period
+ *         pricePerPeriod:
+ *           type: number
+ *           description: Price per day/month/year depending on rentalPeriod
+ *         minDuration:
+ *           type: number
+ *           description: Minimum rental duration (e.g. 1 day, 1 month)
+ *         maxDuration:
+ *           type: number
+ *           description: Maximum rental duration (e.g. 30 days, 12 months)
  */
 
-// Helper: extract the Cloudinary public_id from a full URL so we can delete it later.
-// A Cloudinary URL looks like:
-// https://res.cloudinary.com/CLOUD_NAME/image/upload/v123456/afoproperties/abc123.jpg
-// The public_id we need for deletion is: afoproperties/abc123
+// Helper to extract Cloudinary public_id from URL
 function extractPublicId(url) {
   try {
-    const parts = url.split('/upload/')[1]; // v123456/afoproperties/abc123.jpg
-    const withoutVersion = parts.split('/').slice(1).join('/'); // afoproperties/abc123.jpg
-    return withoutVersion.substring(0, withoutVersion.lastIndexOf('.')); // afoproperties/abc123
+    const parts = url.split('/upload/')[1];
+    const withoutVersion = parts.split('/').slice(1).join('/');
+    return withoutVersion.substring(0, withoutVersion.lastIndexOf('.'));
   } catch {
     return null;
   }
 }
 
-// Helper: delete a list of Cloudinary URLs (images or videos) from Cloudinary storage
+// Helper to delete files from Cloudinary
 async function deleteFromCloudinary(urls = [], resourceType = 'image') {
   for (const url of urls) {
     const publicId = extractPublicId(url);
@@ -117,6 +128,12 @@ async function deleteFromCloudinary(urls = [], resourceType = 'image') {
  *         name: featured
  *         schema:
  *           type: boolean
+ *       - in: query
+ *         name: rentalPeriod
+ *         schema:
+ *           type: string
+ *           enum: [day, month, year]
+ *         description: Filter rent properties by billing period
  *     responses:
  *       200:
  *         description: List of properties
@@ -129,13 +146,14 @@ async function deleteFromCloudinary(urls = [], resourceType = 'image') {
  */
 router.get('/', async (req, res) => {
   try {
-    const { type, status, location, minPrice, maxPrice, bedrooms, featured } = req.query;
+    const { type, status, location, minPrice, maxPrice, bedrooms, featured, rentalPeriod } = req.query;
     let filter = {};
 
     if (type) filter.type = type;
     if (status) filter.status = status;
     if (featured) filter.featured = featured === 'true';
     if (bedrooms) filter.bedrooms = Number(bedrooms);
+    if (rentalPeriod) filter.rentalPeriod = rentalPeriod;
     if (location) filter.location = { $regex: location, $options: 'i' };
     if (minPrice || maxPrice) {
       filter.price = {};
@@ -154,7 +172,7 @@ router.get('/', async (req, res) => {
  * @swagger
  * /api/properties/upload:
  *   post:
- *     summary: Upload images/videos for a property (admin only) — returns Cloudinary URLs
+ *     summary: Upload images/videos for a property (admin only)
  *     tags: [Properties]
  *     security:
  *       - bearerAuth: []
@@ -245,6 +263,7 @@ router.get('/:id', async (req, res) => {
  *               price:
  *                 type: number
  *                 example: 25000000
+ *                 description: Base price (for sale/mortgage). For rent use pricePerPeriod
  *               bedrooms:
  *                 type: number
  *                 example: 3
@@ -257,7 +276,7 @@ router.get('/:id', async (req, res) => {
  *               type:
  *                 type: string
  *                 enum: [rent, sale, mortgage]
- *                 example: sale
+ *                 example: rent
  *               status:
  *                 type: string
  *                 enum: [available, sold]
@@ -288,6 +307,23 @@ router.get('/:id', async (req, res) => {
  *               description:
  *                 type: string
  *                 example: Spacious duplex with modern finishing
+ *               rentalPeriod:
+ *                 type: string
+ *                 enum: [day, month, year]
+ *                 description: Only for rent properties — defines the billing period
+ *                 example: month
+ *               pricePerPeriod:
+ *                 type: number
+ *                 description: Price per day/month/year
+ *                 example: 150000
+ *               minDuration:
+ *                 type: number
+ *                 description: Minimum rental duration
+ *                 example: 1
+ *               maxDuration:
+ *                 type: number
+ *                 description: Maximum rental duration (30 for days, 12 for months)
+ *                 example: 12
  *     responses:
  *       201:
  *         description: Property created
@@ -311,7 +347,7 @@ router.post('/', protect, adminOnly, async (req, res) => {
  * @swagger
  * /api/properties/{id}:
  *   put:
- *     summary: Update a property (admin only) — removes any images/videos no longer in the new list from Cloudinary
+ *     summary: Update a property (admin only)
  *     tags: [Properties]
  *     security:
  *       - bearerAuth: []
@@ -330,12 +366,6 @@ router.post('/', protect, adminOnly, async (req, res) => {
  *     responses:
  *       200:
  *         description: Property updated
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Property'
- *       400:
- *         description: Invalid data
  *       404:
  *         description: Property not found
  */
@@ -346,8 +376,6 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
 
     const property = await Property.findByIdAndUpdate(req.params.id, req.body, { new: true });
 
-    // If images/videos were included in the update, figure out which old ones
-    // are no longer present in the new list, and delete those from Cloudinary
     if (req.body.images) {
       const removedImages = existing.images.filter(img => !req.body.images.includes(img));
       deleteFromCloudinary(removedImages, 'image');
@@ -367,7 +395,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
  * @swagger
  * /api/properties/{id}:
  *   delete:
- *     summary: Delete a property (admin only) — also removes its images/videos from Cloudinary
+ *     summary: Delete a property (admin only)
  *     tags: [Properties]
  *     security:
  *       - bearerAuth: []
@@ -386,7 +414,6 @@ router.delete('/:id', protect, adminOnly, async (req, res) => {
     const property = await Property.findByIdAndDelete(req.params.id);
     if (!property) return res.status(404).json({ error: 'Property not found' });
 
-    // Clean up Cloudinary storage in the background, don't block the response
     deleteFromCloudinary(property.images, 'image');
     deleteFromCloudinary(property.videos, 'video');
 
