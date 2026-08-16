@@ -7,11 +7,11 @@ const settingsSchema = new mongoose.Schema({
   companyAddress: { type: String, default: 'Lekki Phase 1, Lagos, Nigeria' },
   aboutText: { type: String, default: "Nigeria's trusted real estate platform." },
   socialLinks: {
-    FaceBook: { type: String, default: '' },
-    X: { type: String, default: '' },
+    facebook: { type: String, default: '' },
+    x: { type: String, default: '' },
     instagram: { type: String, default: '' },
-    Linkedin: { type: String, default: '' },
-    Whatsapp: { type: String, default: '' },
+    linkedin: { type: String, default: '' },
+    whatsapp: { type: String, default: '' },
   },
   inquirySubjects: {
     type: [String],
