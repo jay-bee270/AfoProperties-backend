@@ -46,6 +46,11 @@ app.get('/', (req, res) => {
   });
 });
 
+// Health check route
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', uptime: process.uptime() });
+});
+
 // Test DB route
 app.get('/test-db', async (req, res) => {
   try {
